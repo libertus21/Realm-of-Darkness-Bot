@@ -35,6 +35,25 @@ async function getArgs(interaction) {
   const moralityNameType = interaction.options.getString("morality_name");
   let moralityName = null;
   if (moralityNameType) moralityName = MortalityType[moralityNameType];
+  
+  const parseAbilities = (type) => {
+    const input = interaction.options.getString(type);
+    return input ? input.split(/,\s*/) : [];
+  };
+
+  const parseDisciplines = () => {
+    const input = interaction.options.getString("disciplines");
+    if (!input) return [];
+    return input.split(/,\s*/).map(d => {
+      const [name, level, path] = d.split(/:/);
+      return {
+        name: name?.trim() || "Unknown",
+        level: parseInt(level) || 1,
+        path: path?.trim() || ""
+      };
+    });
+  };
+
   const args = {
     player: interaction.options.getUser("player"),
     name: interaction.options.getString("name"),
@@ -51,6 +70,13 @@ async function getArgs(interaction) {
     blood: interaction.options.getInteger("blood"),
     moralityName: moralityName,
     morality: interaction.options.getInteger("morality"),
+    clan: interaction.options.getString("clan"),
+    abilities: {
+      talents: parseAbilities("talents"),
+      skills: parseAbilities("skills"),
+      knowledges: parseAbilities("knowledges")
+    },
+    disciplines: parseDisciplines()
   };
 
   if (args.color || args.thumbnail)
