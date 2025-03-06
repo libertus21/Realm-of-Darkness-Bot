@@ -418,6 +418,41 @@ function getCommands() {
             "Changes your Character's Thumbnail Image. [Supporter Only]"
           )
       )
+
+      .addStringOption(option =>
+        option
+          .setName("clan")
+          .setDescription("Set character's clan")
+          .setMaxLength(30)
+      )
+
+      .addStringOption(option =>
+        option
+          .setName("talents")
+          .setDescription("Set talents (comma-separated)")
+          .setMaxLength(150)
+      )
+     
+      .addStringOption(option =>
+        option
+          .setName("skills")
+          .setDescription("Set skills (comma-separated)")
+          .setMaxLength(150)
+        )
+      
+      .addStringOption(option =>
+        option
+          .setName("knowledges")
+          .setDescription("Set knowledges (comma-separated)")
+          .setMaxLength(150)
+        )
+      
+      .addStringOption(option =>
+        option
+          .setName("disciplines")
+          .setDescription("Set disciplines (Format: Name:Level:Path)")
+          .setMaxLength(200)
+        )
   );
 
   /////////////////////// Update Vampire ////////////////////////////////////
@@ -539,6 +574,41 @@ function getCommands() {
           )
           .setMaxLength(300)
       )
+
+      .addStringOption(option =>
+        option
+          .setName("clan")
+          .setDescription("Update character's clan")
+          .setMaxLength(30)
+      )
+
+      .addStringOption(option =>
+        option
+          .setName("talents")
+          .setDescription("Update talents (comma-separated)")
+          .setMaxLength(150)
+      )
+     
+      .addStringOption(option =>
+        option
+          .setName("skills")
+          .setDescription("Update skills (comma-separated)")
+          .setMaxLength(150)
+        )
+      
+      .addStringOption(option =>
+        option
+          .setName("knowledges")
+          .setDescription("Update knowledges (comma-separated)")
+          .setMaxLength(150)
+        )
+      
+      .addStringOption(option =>
+        option
+          .setName("disciplines")
+          .setDescription("Update disciplines (Format: Name:Level:Path)")
+          .setMaxLength(200)
+        )
   );
   return slashCommand;
 }
