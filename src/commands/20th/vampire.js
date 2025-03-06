@@ -249,6 +249,42 @@ function getCommands() {
             "Changes your Character's Thumbnail Image. [Supporter Only]"
           )
       )
+
+      .addStringOption(option =>
+        option
+          .setName("clan")
+          .setDescription("Character's clan")
+          .setMaxLength(30)
+        )
+
+      .addStringOption(option =>
+        option
+          .setName("talents")
+          .setDescription("Comma-separated talents (e.g. Alertness, Athletics)")
+          .setMaxLength(150)
+        )
+      
+      .addStringOption(option =>
+        option
+          .setName("skills")
+          .setDescription("Comma-separated skills (e.g. Drive, Firearms)")
+          .setMaxLength(150)
+        )
+      
+      .addStringOption(option =>
+        option
+          .setName("knowledges")
+          .setDescription("Comma-separated knowledges (e.g. Law, Medicine)")
+          .setMaxLength(150)
+        )
+      
+      .addStringOption(option =>
+        option
+          .setName("disciplines")
+          .setDescription("Comma-separated disciplines (Format: Name:Level:Path)")
+          .setMaxLength(200)
+        )
+
   );
 
   ///////////////////////// Set Vampire ////////////////////////////////////
