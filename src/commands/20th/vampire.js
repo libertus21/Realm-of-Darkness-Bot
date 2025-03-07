@@ -38,7 +38,26 @@ async function getArgs(interaction) {
   
   const parseAbilities = (type) => {
     const input = interaction.options.getString(type);
-    return input ? input.split(/,\s*/) : [];
+    if (!input) return {};
+    
+    const abilityMap = {
+      talents: ['alertness', 'athletics', 'awareness', 'brawl', 'empathy', 
+               'expression', 'intimidation', 'leadership', 'streetwise', 'subterfuge'],
+      skills: ['animal_ken', 'crafts', 'drive', 'etiquette', 'firearms', 
+              'larceny', 'melee', 'performance', 'stealth', 'survival'],
+      knowledges: ['academics', 'computer', 'finance', 'investigation', 
+                  'law', 'medicine', 'occult', 'politics', 'science', 'technology']
+    };
+
+    return input.split(/,\s*/).reduce((acc, item) => {
+      const [name, level] = item.split(/:/).map(s => s.trim());
+      const cleanName = name.toLowerCase().replace(/ /g, '_');
+      
+      if (abilityMap[type].includes(cleanName) && !isNaN(level)) {
+        acc[cleanName] = parseInt(level);
+      }
+      return acc;
+    }, {});
   };
 
   const parseDisciplines = () => {
@@ -71,11 +90,9 @@ async function getArgs(interaction) {
     moralityName: moralityName,
     morality: interaction.options.getInteger("morality"),
     clan: interaction.options.getString("clan"),
-    abilities: {
-      talents: parseAbilities("talents"),
-      skills: parseAbilities("skills"),
-      knowledges: parseAbilities("knowledges")
-    },
+    talents: parseAbilities("talents"),
+    skills: parseAbilities("skills"),
+    knowledges: parseAbilities("knowledges"),
     disciplines: parseDisciplines()
   };
 
@@ -94,7 +111,6 @@ function getCommands() {
     subcommand
       .setName("new")
       .setDescription("Create a new Vampire 20th")
-
       .addStringOption((option) =>
         option
           .setName("name")
@@ -254,27 +270,42 @@ function getCommands() {
         option
           .setName("clan")
           .setDescription("Character's clan")
+          .addChoices(
+            { name: "Assamite", value: "Assamite" },
+            { name: "Brujah", value: "Brujah" },
+            { name: "Gangrel", value: "Gangrel" },
+            { name: "Malkavian", value: "Malkavian" },
+            { name: "Nosferatu", value: "Nosferatu" },
+            { name: "Toreador", value: "Toreador" },
+            { name: "Tremere", value: "Tremere" },
+            { name: "Ventrue", value: "Ventrue" },
+            { name: "Giovanni", value: "Giovanni" },
+            { name: "Followers of Set", value: "Followers of Set" },
+            { name: "Ravnos", value: "Ravnos" },
+            { name: "Lasombra", value: "Lasombra" },
+            { name: "Tzimisce", value: "Tzimisce" }
+          )
           .setMaxLength(30)
         )
 
       .addStringOption(option =>
         option
           .setName("talents")
-          .setDescription("Comma-separated talents (e.g. Alertness, Athletics)")
+          .setDescription("Format: Talent:Level (e.g. Alertness:2, Brawl:3)")
           .setMaxLength(150)
         )
       
       .addStringOption(option =>
         option
           .setName("skills")
-          .setDescription("Comma-separated skills (e.g. Drive, Firearms)")
+          .setDescription("Format: Skill:Level (e.g. Firearms:1, Stealth:4)")
           .setMaxLength(150)
         )
       
       .addStringOption(option =>
         option
           .setName("knowledges")
-          .setDescription("Comma-separated knowledges (e.g. Law, Medicine)")
+          .setDescription("Format: Knowledge:Level (e.g. Law:3, Occult:5)")
           .setMaxLength(150)
         )
       
@@ -459,6 +490,21 @@ function getCommands() {
         option
           .setName("clan")
           .setDescription("Set character's clan")
+          .addChoices(
+            { name: "Assamite", value: "Assamite" },
+            { name: "Brujah", value: "Brujah" },
+            { name: "Gangrel", value: "Gangrel" },
+            { name: "Malkavian", value: "Malkavian" },
+            { name: "Nosferatu", value: "Nosferatu" },
+            { name: "Toreador", value: "Toreador" },
+            { name: "Tremere", value: "Tremere" },
+            { name: "Ventrue", value: "Ventrue" },
+            { name: "Giovanni", value: "Giovanni" },
+            { name: "Followers of Set", value: "Followers of Set" },
+            { name: "Ravnos", value: "Ravnos" },
+            { name: "Lasombra", value: "Lasombra" },
+            { name: "Tzimisce", value: "Tzimisce" }
+          )
           .setMaxLength(30)
       )
 
@@ -615,6 +661,21 @@ function getCommands() {
         option
           .setName("clan")
           .setDescription("Update character's clan")
+          .addChoices(
+            { name: "Assamite", value: "Assamite" },
+            { name: "Brujah", value: "Brujah" },
+            { name: "Gangrel", value: "Gangrel" },
+            { name: "Malkavian", value: "Malkavian" },
+            { name: "Nosferatu", value: "Nosferatu" },
+            { name: "Toreador", value: "Toreador" },
+            { name: "Tremere", value: "Tremere" },
+            { name: "Ventrue", value: "Ventrue" },
+            { name: "Giovanni", value: "Giovanni" },
+            { name: "Followers of Set", value: "Followers of Set" },
+            { name: "Ravnos", value: "Ravnos" },
+            { name: "Lasombra", value: "Lasombra" },
+            { name: "Tzimisce", value: "Tzimisce" }
+          )
           .setMaxLength(30)
       )
 
@@ -646,9 +707,9 @@ function getCommands() {
           .setMaxLength(200)
         )
   );
+
   return slashCommand;
 }
-
 const MortalityType = {
   1: "Humanity",
   2: "Path of Asakku",

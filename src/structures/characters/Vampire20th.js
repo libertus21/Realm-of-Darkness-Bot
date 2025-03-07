@@ -25,26 +25,24 @@ module.exports = class Vampire20th extends Character20th {
     blood = 10, 
     willpower = 6,
     clan = "",
-    abilities = {
-      talents: [],
-      skills: [],
-      knowledges: []
-    },
+    talents = {},
+    skills = {},
+    knowledges = {},
     disciplines = []
   } = {}) {
     super({ client, name, willpower });
     this.splat = Splats.vampire20th;
-    this.morality = {
-      name: "Humanity",
-      pool: new Consumable(10, humanity, 0),
-    };
+    this.morality = { name: "Humanity", pool: new Consumable(10, humanity, 0) };
     this.blood = new Consumable(blood, blood, 0);
     this.clan = clan;
-    this.abilities = abilities;
+    this.talents = talents;
+    this.skills = skills;
+    this.knowledges = knowledges;
     this.disciplines = disciplines.map(d => 
       d instanceof Discipline ? d : new Discipline(d.name, d.level, d.path)
     );
   }
+
 
   static getSplat() {
     return Splats.vampire20th;
@@ -56,7 +54,17 @@ module.exports = class Vampire20th extends Character20th {
     if (args.morality != null) this.morality.pool.setCurrent(args.morality);
     if (args.moralityName != null) this.morality.name = args.moralityName;
     if (args.clan != null) this.clan = args.clan;
-    if (args.abilities != null) this.abilities = args.abilities;
+    
+    const updateAbilities = (source, target) => {
+      for (const [ability, level] of Object.entries(source)) {
+        target[ability] = level;
+      }
+    };
+    
+    if (args.talents) updateAbilities(args.talents, this.talents);
+    if (args.skills) updateAbilities(args.skills, this.skills);
+    if (args.knowledges) updateAbilities(args.knowledges, this.knowledges);
+
     if (args.disciplines != null) {
       this.disciplines = args.disciplines.map(d => 
         d instanceof Discipline ? d : new Discipline(d.name, d.level, d.path)
@@ -64,20 +72,26 @@ module.exports = class Vampire20th extends Character20th {
     }
   }
 
+
   updateFields(args) {
     super.updateFields(args);
     if (args.blood != null) this.blood.updateCurrent(args.blood);
     if (args.morality != null) this.morality.pool.updateCurrent(args.morality);
     if (args.clan != null) this.clan = args.clan;
-    if (args.abilities != null) {
-      this.abilities = {
-        ...this.abilities,
-        ...args.abilities
-      };
-    }
+    
+    const mergeAbilities = (source, target) => {
+      for (const [ability, level] of Object.entries(source)) {
+        target[ability] = (target[ability] || 0) + level;
+      }
+    };
+    
+    if (args.talents) mergeAbilities(args.talents, this.talents);
+    if (args.skills) mergeAbilities(args.skills, this.skills);
+    if (args.knowledges) mergeAbilities(args.knowledges, this.knowledges);
+
     if (args.disciplines != null) {
       this.disciplines = [
-        ...this.disciplines,
+        ...(this.disciplines || []),
         ...args.disciplines.map(d => 
           d instanceof Discipline ? d : new Discipline(d.name, d.level, d.path)
         )
@@ -87,16 +101,36 @@ module.exports = class Vampire20th extends Character20th {
 
   async deserilize(json) {
     await super.deserilize(json);
-    this.class = json.class;
     this.morality.pool.setCurrent(json.morality_value);
     this.morality.name = json.morality_name;
     this.blood.setTotal(json.blood_total);
     this.blood.setCurrent(json.blood_current);
     this.clan = json.clan;
-    this.abilities = json.abilities;
-    this.disciplines = json.disciplines.map(d => 
+    
+    const mapAbilities = (category) => {
+      const categoryMap = {
+        talents: ['alertness', 'athletics', 'awareness', 'brawl', 'empathy',
+                 'expression', 'intimidation', 'leadership', 'streetwise', 'subterfuge'],
+        skills: ['animal_ken', 'crafts', 'drive', 'etiquette', 'firearms',
+                'larceny', 'melee', 'performance', 'stealth', 'survival'],
+        knowledges: ['academics', 'computer', 'finance', 'investigation',
+                    'law', 'medicine', 'occult', 'politics', 'science', 'technology']
+      };
+      
+      return categoryMap[category].reduce((acc, field) => {
+        if (json[field] > 0) acc[field] = json[field];
+        return acc;
+      }, {});
+    };
+
+    this.talents = mapAbilities('talents');
+    this.skills = mapAbilities('skills');
+    this.knowledges = mapAbilities('knowledges');
+    
+    this.disciplines = json.disciplines?.map(d => 
       new Discipline(d.name, d.level, d.path)
-    );
+    ) || [];
+
     return this;
   }
 
@@ -108,23 +142,36 @@ module.exports = class Vampire20th extends Character20th {
     serializer.character["blood_current"] = this.blood.current;
     serializer.character["splat"] = this.splat.slug;
     serializer.character["clan"] = this.clan;
-    serializer.character["abilities"] = this.abilities;
+
+    const flattenAbilities = (abilities) => {
+      Object.entries(abilities).forEach(([field, value]) => {
+        serializer.character[field] = value;
+      });
+    };
+
+    flattenAbilities(this.talents);
+    flattenAbilities(this.skills);
+    flattenAbilities(this.knowledges);
+
     serializer.character["disciplines"] = this.disciplines.map(d => ({
       name: d.name,
       level: d.level,
       path: d.path
     }));
+
     return serializer;
   }
 
+
   getEmbed(notes) {
     const embed = new EmbedBuilder()
-      .setColor(this.color)
-      .setAuthor(this.getAuthor())
-      .setTitle(`${this.name} - ${this.clan}`)
-      .setURL("https://realmofdarkness.app/");
+    .setColor(this.color)
+    .setAuthor(this.getAuthor())
+    .setTitle(`${this.name} - ${this.clan}`)
+    .setURL("https://realmofdarkness.app/");
 
     if (this.thumbnail) embed.setThumbnail(this.thumbnail);
+
 
     embed.addFields({
       name: `Willpower [${this.willpower.current}/${this.willpower.total}]`,
