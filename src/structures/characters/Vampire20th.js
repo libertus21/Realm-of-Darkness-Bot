@@ -43,7 +43,6 @@ module.exports = class Vampire20th extends Character20th {
     );
   }
 
-
   static getSplat() {
     return Splats.vampire20th;
   }
@@ -71,7 +70,6 @@ module.exports = class Vampire20th extends Character20th {
       );
     }
   }
-
 
   updateFields(args) {
     super.updateFields(args);
@@ -162,7 +160,6 @@ module.exports = class Vampire20th extends Character20th {
     return serializer;
   }
 
-
   getEmbed(notes) {
     const embed = new EmbedBuilder()
     .setColor(this.color)
@@ -171,7 +168,6 @@ module.exports = class Vampire20th extends Character20th {
     .setURL("https://realmofdarkness.app/");
 
     if (this.thumbnail) embed.setThumbnail(this.thumbnail);
-
 
     embed.addFields({
       name: `Willpower [${this.willpower.current}/${this.willpower.total}]`,
@@ -205,15 +201,20 @@ module.exports = class Vampire20th extends Character20th {
       inline: false,
     });
 
-    if (Object.values(this.abilities).some(arr => arr.length > 0)) {
-      embed.addFields({
-        name: "Abilities",
-        value: `**Talents:** ${this.abilities.talents.join(", ") || "None"}\n` +
-               `**Skills:** ${this.abilities.skills.join(", ") || "None"}\n` +
-               `**Knowledges:** ${this.abilities.knowledges.join(", ") || "None"}`,
-        inline: false
-      });
-    }
+    const formatAbilities = (abilities) => {
+      return Object.entries(abilities)
+        .filter(([_, level]) => level > 0)
+        .map(([name, level]) => `${name}: ${'●'.repeat(level)}`)
+        .join(', ') || 'None';
+    };
+
+    embed.addFields({
+      name: "Abilities",
+      value: `**Talents:** ${formatAbilities(this.talents)}\n` +
+             `**Skills:** ${formatAbilities(this.skills)}\n` +
+             `**Knowledges:** ${formatAbilities(this.knowledges)}`,
+      inline: false
+    });
 
     if (this.disciplines.length > 0) {
       embed.addFields({
