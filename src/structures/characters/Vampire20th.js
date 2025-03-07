@@ -104,8 +104,9 @@ module.exports = class Vampire20th extends Character20th {
     this.blood.setTotal(json.blood_total);
     this.blood.setCurrent(json.blood_current);
     this.clan = json.clan;
-    
-    const mapAbilities = (category) => {
+    const mapAbilities = (skills) => {
+      const abilities = {};
+  
       const categoryMap = {
         talents: ['alertness', 'athletics', 'awareness', 'brawl', 'empathy',
                  'expression', 'intimidation', 'leadership', 'streetwise', 'subterfuge'],
@@ -114,21 +115,27 @@ module.exports = class Vampire20th extends Character20th {
         knowledges: ['academics', 'computer', 'finance', 'investigation',
                     'law', 'medicine', 'occult', 'politics', 'science', 'technology']
       };
-      
-      return categoryMap[category].reduce((acc, field) => {
-        if (json[field] > 0) acc[field] = json[field];
-        return acc;
-      }, {});
+  
+      for (const [skillName, skillData] of Object.entries(skills)) {
+        if (skillData.value > 0) {
+          if (categoryMap.talents.includes(skillName)) {
+            abilities.talents = abilities.talents || {};
+            abilities.talents[skillName] = skillData.value;
+          } else if (categoryMap.skills.includes(skillName)) {
+            abilities.skills = abilities.skills || {};
+            abilities.skills[skillName] = skillData.value;
+          } else if (categoryMap.knowledges.includes(skillName)) {
+            abilities.knowledges = abilities.knowledges || {};
+            abilities.knowledges[skillName] = skillData.value;
+          }
+        }
+      }
+      return abilities;
     };
-
-    this.talents = mapAbilities('talents');
-    this.skills = mapAbilities('skills');
-    this.knowledges = mapAbilities('knowledges');
-    
-    this.disciplines = json.disciplines?.map(d => 
-      new Discipline(d.name, d.level, d.path)
-    ) || [];
-
+    const abilities = mapAbilities(json.skills || {});
+    this.talents = abilities.talents || {};
+    this.skills = abilities.skills || {};
+    this.knowledges = abilities.knowledges || {};
     return this;
   }
 
