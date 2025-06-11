@@ -5,47 +5,96 @@ const CodRollResults = require("@structures/CodRollResults");
 const Roll = require("@src/modules/dice/roll");
 const { Emoji } = require("@constants");
 
+const { getCombat } = require("@modules/combat/combatManager");
+
 // Funciones principales de combate
 async function initiativeRoll(interaction) {
   const dexterity = interaction.options.getInteger("dexterity");
   const composure = interaction.options.getInteger("composure");
   const initBonus = interaction.options.getInteger("init_bonus") || 0;
   const initPenalty = interaction.options.getInteger("init_penalty") || 0;
+  const character = interaction.options.getString("character");
   
-  const args = {
-    pool: dexterity + composure,
-    bonus: initBonus,
-    penalty: initPenalty,
-    character: interaction.options.getString("character"),
-    notes: "Tirada de Iniciativa"
-  };
-
-  interaction.arguments = args;
-  interaction.rollResults = new CodRollResults(interaction);
+  // Verificar si hay un combate activo
+  const combat = getCombat(interaction.channel.id);
+  const userId = interaction.user.id;
   
-  const finalPool = dexterity + composure + initBonus - initPenalty;
-  const actualPool = Math.max(0, finalPool); // El pool final después de modificadores
-  
-  const embed = new EmbedBuilder()
-    .setAuthor({
-      name: interaction.member?.displayName ?? interaction.user.displayName ?? interaction.user.username,
-      iconURL: interaction.member?.displayAvatarURL() ?? interaction.user.displayAvatarURL(),
-    })
-    .setTitle(`🎯 Iniciativa - Tirando ${actualPool}d10`)
-    .setColor(interaction.rollResults.outcome.color)
-    .addFields(
-      { name: "Pool Base", value: `Destreza (${dexterity}) + Composure (${composure}) = ${dexterity + composure}d10`, inline: true },
-      { name: "Modificadores", value: `Bonus: +${initBonus} | Penalty: -${initPenalty}`, inline: true },
-      { name: "Pool Final", value: `${actualPool}d10 ${interaction.rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
-      { name: "Resultado", value: `**${interaction.rollResults.total} éxitos**\n${interaction.rollResults.outcome.toString}` }
-    );
+  if (combat && combat.participants.has(userId) && !combat.isActive) {
+    // Tirar iniciativa dentro del sistema de combate
+    const rollResults = combat.rollInitiative(userId, dexterity, composure, initBonus, initPenalty);
+    
+    const finalPool = dexterity + composure + initBonus - initPenalty;
+    const actualPool = Math.max(0, finalPool);
+    
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: interaction.member?.displayName ?? interaction.user.displayName ?? interaction.user.username,
+        iconURL: interaction.member?.displayAvatarURL() ?? interaction.user.displayAvatarURL(),
+      })
+      .setTitle(`🎯 Iniciativa - ${combat.participants.get(userId).name}`)
+      .setColor(rollResults.outcome.color)
+      .addFields(
+        { name: "Pool", value: `${actualPool}d10 ${rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
+        { name: "Resultado", value: `**${rollResults.total} éxitos**\n${rollResults.outcome.toString}`, inline: true }
+      );
 
-  if (args.character) embed.addFields({ name: "Personaje", value: args.character });
+    // Si todos han tirado iniciativa, mostrar el orden de turnos
+    if (combat.allInitiativeRolled()) {
+      const turnOrderEmbed = combat.getTurnOrderEmbed();
+      return { 
+        embeds: [embed, turnOrderEmbed],
+        content: "🎯 **¡Iniciativa completada! El combate comienza!**"
+      };
+    } else {
+      // Mostrar quién falta por tirar
+      const remaining = Array.from(combat.participants.values())
+        .filter(p => !p.hasRolledInitiative)
+        .map(p => p.name);
+      
+      embed.addFields({ 
+        name: "Pendientes por tirar", 
+        value: remaining.join(', ') || "Todos han tirado" 
+      });
+      
+      return { embeds: [embed] };
+    }
+  } else {
+    // Tirada de iniciativa normal (sin combate activo)
+    const args = {
+      pool: dexterity + composure,
+      bonus: initBonus,
+      penalty: initPenalty,
+      character: character,
+      notes: "Tirada de Iniciativa"
+    };
 
-  return { 
-    content: getContent(interaction), 
-    embeds: [embed] 
-  };
+    interaction.arguments = args;
+    interaction.rollResults = new CodRollResults(interaction);
+    
+    const finalPool = dexterity + composure + initBonus - initPenalty;
+    const actualPool = Math.max(0, finalPool);
+    
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: interaction.member?.displayName ?? interaction.user.displayName ?? interaction.user.username,
+        iconURL: interaction.member?.displayAvatarURL() ?? interaction.user.displayAvatarURL(),
+      })
+      .setTitle(`🎯 Iniciativa - Tirando ${actualPool}d10`)
+      .setColor(interaction.rollResults.outcome.color)
+      .addFields(
+        { name: "Pool Base", value: `Destreza (${dexterity}) + Composure (${composure}) = ${dexterity + composure}d10`, inline: true },
+        { name: "Modificadores", value: `Bonus: +${initBonus} | Penalty: -${initPenalty}`, inline: true },
+        { name: "Pool Final", value: `${actualPool}d10 ${interaction.rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
+        { name: "Resultado", value: `**${interaction.rollResults.total} éxitos**\n${interaction.rollResults.outcome.toString}` }
+      );
+
+    if (character) embed.addFields({ name: "Personaje", value: character });
+
+    return { 
+      content: getContent(interaction), 
+      embeds: [embed] 
+    };
+  }
 }
 
 async function attackRoll(interaction) {

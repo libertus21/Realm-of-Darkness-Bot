@@ -2,6 +2,7 @@
 require(`${process.cwd()}/alias`);
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const { initiativeRoll, attackRoll, damageRoll, soakRoll } = require("@modules/combat/codCombat");
+const { startCombat, joinCombat, endCombat, nextTurn, getCombat } = require("@modules/combat/combatManager");
 const commandUpdate = require("@modules/commandDatabaseUpdate");
 
 module.exports = {
@@ -13,6 +14,14 @@ module.exports = {
     if (!interaction.isRepliable()) return "notRepliable";
 
     switch (interaction.options.getSubcommand()) {
+      case "start":
+        return await startCombat(interaction);
+      case "join":
+        return await joinCombat(interaction);
+      case "end":
+        return await endCombat(interaction);
+      case "next":
+        return await nextTurn(interaction);
       case "initiative":
         return await initiativeRoll(interaction);
       case "attack":
@@ -29,6 +38,42 @@ function getCommand() {
   const command = new SlashCommandBuilder();
 
   command.setName("combat").setDescription("Sistema de combate para Vampiro Requiem 2e (Chronicles of Darkness)");
+
+  // Subcomando de Iniciar Combate
+  command.addSubcommand((subcommand) =>
+    subcommand
+      .setName("start")
+      .setDescription("Iniciar un nuevo combate por turnos")
+  );
+
+  // Subcomando de Unirse al Combate
+  command.addSubcommand((subcommand) =>
+    subcommand
+      .setName("join")
+      .setDescription("Unirse al combate activo")
+      
+      .addStringOption((option) =>
+        option
+          .setName("character")
+          .setDescription("Nombre del personaje")
+          .setMaxLength(50)
+          .setRequired(true)
+      )
+  );
+
+  // Subcomando de Terminar Combate
+  command.addSubcommand((subcommand) =>
+    subcommand
+      .setName("end")
+      .setDescription("Terminar el combate activo")
+  );
+
+  // Subcomando de Siguiente Turno
+  command.addSubcommand((subcommand) =>
+    subcommand
+      .setName("next")
+      .setDescription("Avanzar al siguiente turno (solo para el master)")
+  );
 
   // Subcomando de Iniciativa
   command.addSubcommand((subcommand) =>
