@@ -32,24 +32,18 @@ class CombatManager {
     this.rebuildTurnOrder();
   }
 
-  rollInitiative(userId, dexterity, composure, bonus = 0, penalty = 0) {
+  rollInitiative(userId, initiativeModifier = 0) {
     const participant = this.participants.get(userId);
     if (!participant) return null;
 
-    const args = {
-      pool: dexterity + composure,
-      bonus: bonus,
-      penalty: penalty,
-      character: participant.name,
-      notes: "Tirada de Iniciativa"
-    };
+    // Tirar un solo d10 y sumar el modificador
+    const dieRoll = Math.floor(Math.random() * 10) + 1;
+    const finalInitiative = dieRoll + initiativeModifier;
 
-    const mockInteraction = { arguments: args };
-    const rollResults = new CodRollResults(mockInteraction);
-
-    participant.initiative = rollResults.total;
+    participant.initiative = finalInitiative;
+    participant.dieRoll = dieRoll;
+    participant.initiativeModifier = initiativeModifier;
     participant.hasRolledInitiative = true;
-    participant.rollResults = rollResults;
 
     if (this.allInitiativeRolled()) {
       this.buildTurnOrder();
@@ -57,7 +51,11 @@ class CombatManager {
       this.isActive = true;
     }
 
-    return rollResults;
+    return {
+      dieRoll: dieRoll,
+      modifier: initiativeModifier,
+      total: finalInitiative
+    };
   }
 
   allInitiativeRolled() {
@@ -90,7 +88,7 @@ class CombatManager {
 
     if (this.turnOrder.length === 0) {
       embed.setDescription("No hay participantes en el combate");
-      return embed;
+      return { embed, content: null };
     }
 
     let orderList = "";
@@ -106,14 +104,30 @@ class CombatManager {
     embed.addFields({ name: "Orden de Turnos", value: orderList });
 
     const currentPlayer = this.getCurrentPlayer();
+    let content = null;
+    
     if (currentPlayer) {
       embed.addFields({ 
         name: "Turno Actual", 
-        value: `🎲 **${currentPlayer.name}** - <@${currentPlayer.userId}>, ¡es tu turno!` 
+        value: `🎲 **${currentPlayer.name}** - ¡es tu turno!` 
       });
+      // El ping REAL va en el content principal
+      content = `<@${currentPlayer.userId}> ¡Es tu turno! (${currentPlayer.name})`;
     }
 
-    return embed;
+    return { embed, content };
+  }
+
+  advanceTurnAfterAction(userId) {
+    // Verificar que es el turno del usuario actual
+    const currentPlayer = this.getCurrentPlayer();
+    if (!currentPlayer || currentPlayer.userId !== userId) {
+      return null; // No es su turno
+    }
+
+    // Avanzar al siguiente turno
+    this.nextTurn();
+    return this.getTurnOrderEmbed();
   }
 
   endCombat() {
@@ -230,6 +244,107 @@ async function endCombat(interaction) {
   return { embeds: [embed] };
 }
 
+async function showCombatStatus(interaction) {
+  const channelId = interaction.channel.id;
+  const combat = getCombat(channelId);
+
+  if (!combat) {
+    return {
+      content: "❌ No hay un combate activo en este canal.",
+      ephemeral: true
+    };
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("📊 Estado del Combate")
+    .setColor("#4169E1");
+
+  // Estado general
+  if (combat.initiativePhase) {
+    embed.setDescription("🎯 **Fase de Iniciativa** - Esperando que todos tiren iniciativa");
+    
+         // Mostrar quién ha tirado y quién falta
+     let participantsList = "";
+     for (const participant of combat.participants.values()) {
+       const status = participant.hasRolledInitiative ? 
+         `✅ **Iniciativa ${participant.initiative}** (d10: ${participant.dieRoll} + ${participant.initiativeModifier})` : 
+         "⏳ Pendiente";
+       participantsList += `• ${participant.name}: ${status}\n`;
+     }
+    
+    embed.addFields(
+      { name: "Master del Combate", value: `<@${combat.masterId}>`, inline: true },
+      { name: "Participantes", value: participantsList || "Ninguno", inline: false }
+    );
+    
+  } else if (combat.isActive) {
+    embed.setDescription("⚔️ **Combate Activo** - En progreso");
+    
+         // Orden de turnos con indicador del turno actual
+     let orderList = "";
+     for (let i = 0; i < combat.turnOrder.length; i++) {
+       const participant = combat.turnOrder[i];
+       const isCurrent = i === combat.currentTurnIndex;
+       const marker = isCurrent ? "➤" : "  ";
+       const emphasis = isCurrent ? "**" : "";
+       const highlight = isCurrent ? "🎯 " : "";
+       
+       orderList += `${marker} ${highlight}${emphasis}${participant.name} (Iniciativa: ${participant.initiative})${emphasis}\n`;
+     }
+    
+    const currentPlayer = combat.getCurrentPlayer();
+    
+    embed.addFields(
+      { name: "Master del Combate", value: `<@${combat.masterId}>`, inline: true },
+      { name: "Ronda Actual", value: `**${combat.round}**`, inline: true },
+      { name: "Turno Actual", value: currentPlayer ? `**${currentPlayer.name}** (<@${currentPlayer.userId}>)` : "Ninguno", inline: true },
+      { name: "Orden de Turnos", value: orderList || "Sin participantes", inline: false }
+    );
+    
+    if (currentPlayer) {
+      embed.addFields({
+        name: "⏰ Esperando Acción",
+        value: `<@${currentPlayer.userId}> es tu turno con **${currentPlayer.name}**`,
+        inline: false
+      });
+    }
+    
+  } else {
+    embed.setDescription("🔄 **Combate Creado** - Esperando participantes");
+    
+    let participantsList = "";
+    for (const participant of combat.participants.values()) {
+      participantsList += `• ${participant.name}\n`;
+    }
+    
+    embed.addFields(
+      { name: "Master del Combate", value: `<@${combat.masterId}>`, inline: true },
+      { name: "Participantes", value: participantsList || "Ninguno", inline: false }
+    );
+  }
+
+  // Información adicional
+  embed.addFields({
+    name: "ℹ️ Información",
+    value: `**Total de participantes:** ${combat.participants.size}\n` +
+           `**Estado:** ${combat.initiativePhase ? "Iniciativa" : combat.isActive ? "Activo" : "Esperando"}\n` +
+           `**Canal:** ${interaction.channel.name}`,
+    inline: false
+  });
+
+  // Si hay combate activo, incluir el ping
+  let content = null;
+  if (combat.isActive && combat.getCurrentPlayer()) {
+    const currentPlayer = combat.getCurrentPlayer();
+    content = `<@${currentPlayer.userId}> ¡Es tu turno! (${currentPlayer.name})`;
+  }
+
+  return { 
+    embeds: [embed],
+    content: content
+  };
+}
+
 async function nextTurn(interaction) {
   const channelId = interaction.channel.id;
   const combat = getCombat(channelId);
@@ -258,9 +373,10 @@ async function nextTurn(interaction) {
   }
 
   combat.nextTurn();
+  const turnOrderData = combat.getTurnOrderEmbed();
   return { 
-    embeds: [combat.getTurnOrderEmbed()],
-    content: `🔄 **Turno avanzado por el master**`
+    embeds: [turnOrderData.embed],
+    content: `🔄 **Turno avanzado por el master**\n${turnOrderData.content || ""}`
   };
 }
 
@@ -271,5 +387,6 @@ module.exports = {
   startCombat,
   joinCombat,
   endCombat,
-  nextTurn
+  nextTurn,
+  showCombatStatus
 }; 

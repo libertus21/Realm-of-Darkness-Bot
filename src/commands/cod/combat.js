@@ -2,7 +2,7 @@
 require(`${process.cwd()}/alias`);
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const { initiativeRoll, attackRoll, damageRoll, soakRoll } = require("@modules/combat/codCombat");
-const { startCombat, joinCombat, endCombat, nextTurn, getCombat } = require("@modules/combat/combatManager");
+const { startCombat, joinCombat, endCombat, nextTurn, getCombat, showCombatStatus } = require("@modules/combat/combatManager");
 const commandUpdate = require("@modules/commandDatabaseUpdate");
 
 module.exports = {
@@ -22,6 +22,8 @@ module.exports = {
         return await endCombat(interaction);
       case "next":
         return await nextTurn(interaction);
+      case "status":
+        return await showCombatStatus(interaction);
       case "initiative":
         return await initiativeRoll(interaction);
       case "attack":
@@ -75,44 +77,26 @@ function getCommand() {
       .setDescription("Avanzar al siguiente turno (solo para el master)")
   );
 
+  // Subcomando de Estado del Combate
+  command.addSubcommand((subcommand) =>
+    subcommand
+      .setName("status")
+      .setDescription("Mostrar el estado actual del combate")
+  );
+
   // Subcomando de Iniciativa
   command.addSubcommand((subcommand) =>
     subcommand
       .setName("initiative")
-      .setDescription("Tirada de iniciativa (Destreza + Composure)")
+      .setDescription("Tirada de iniciativa (1d10 + modificador)")
       
       .addIntegerOption((option) =>
         option
-          .setName("dexterity")
-          .setDescription("Valor del atributo Destreza")
-          .setMaxValue(10)
-          .setMinValue(1)
+          .setName("initiative_modifier")
+          .setDescription("Modificador de iniciativa (Destreza + Composure + otros modificadores)")
+          .setMaxValue(20)
+          .setMinValue(-10)
           .setRequired(true)
-      )
-      
-      .addIntegerOption((option) =>
-        option
-          .setName("composure")
-          .setDescription("Valor del atributo Composure")
-          .setMaxValue(10)
-          .setMinValue(1)
-          .setRequired(true)
-      )
-      
-      .addIntegerOption((option) =>
-        option
-          .setName("init_bonus")
-          .setDescription("Bonificadores a la iniciativa")
-          .setMaxValue(10)
-          .setMinValue(0)
-      )
-      
-      .addIntegerOption((option) =>
-        option
-          .setName("init_penalty")
-          .setDescription("Penalizadores a la iniciativa")
-          .setMaxValue(10)
-          .setMinValue(0)
       )
       
       .addStringOption((option) =>
@@ -173,17 +157,17 @@ function getCommand() {
       
       .addIntegerOption((option) =>
         option
-          .setName("target_defense")
-          .setDescription("Defensa del objetivo")
-          .setMaxValue(20)
+          .setName("weapon_damage")
+          .setDescription("Bono de daño del arma")
+          .setMaxValue(10)
           .setMinValue(0)
       )
       
       .addIntegerOption((option) =>
         option
-          .setName("weapon_damage")
-          .setDescription("Bono de daño del arma")
-          .setMaxValue(10)
+          .setName("target_defense")
+          .setDescription("Defensa del objetivo")
+          .setMaxValue(20)
           .setMinValue(0)
       )
       

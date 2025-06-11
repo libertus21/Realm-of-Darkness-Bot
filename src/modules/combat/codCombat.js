@@ -9,10 +9,7 @@ const { getCombat } = require("@modules/combat/combatManager");
 
 // Funciones principales de combate
 async function initiativeRoll(interaction) {
-  const dexterity = interaction.options.getInteger("dexterity");
-  const composure = interaction.options.getInteger("composure");
-  const initBonus = interaction.options.getInteger("init_bonus") || 0;
-  const initPenalty = interaction.options.getInteger("init_penalty") || 0;
+  const initiativeModifier = interaction.options.getInteger("initiative_modifier") || 0;
   const character = interaction.options.getString("character");
   
   // Verificar si hay un combate activo
@@ -21,10 +18,7 @@ async function initiativeRoll(interaction) {
   
   if (combat && combat.participants.has(userId) && !combat.isActive) {
     // Tirar iniciativa dentro del sistema de combate
-    const rollResults = combat.rollInitiative(userId, dexterity, composure, initBonus, initPenalty);
-    
-    const finalPool = dexterity + composure + initBonus - initPenalty;
-    const actualPool = Math.max(0, finalPool);
+    const rollResults = combat.rollInitiative(userId, initiativeModifier);
     
     const embed = new EmbedBuilder()
       .setAuthor({
@@ -32,18 +26,19 @@ async function initiativeRoll(interaction) {
         iconURL: interaction.member?.displayAvatarURL() ?? interaction.user.displayAvatarURL(),
       })
       .setTitle(`🎯 Iniciativa - ${combat.participants.get(userId).name}`)
-      .setColor(rollResults.outcome.color)
+      .setColor("#FFD700")
       .addFields(
-        { name: "Pool", value: `${actualPool}d10 ${rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
-        { name: "Resultado", value: `**${rollResults.total} éxitos**\n${rollResults.outcome.toString}`, inline: true }
+        { name: "Dado", value: `🎲 **${rollResults.dieRoll}** (d10)`, inline: true },
+        { name: "Modificador", value: `${rollResults.modifier >= 0 ? '+' : ''}${rollResults.modifier}`, inline: true },
+        { name: "Iniciativa Final", value: `**${rollResults.total}**`, inline: true }
       );
 
     // Si todos han tirado iniciativa, mostrar el orden de turnos
     if (combat.allInitiativeRolled()) {
-      const turnOrderEmbed = combat.getTurnOrderEmbed();
+      const turnOrderData = combat.getTurnOrderEmbed();
       return { 
-        embeds: [embed, turnOrderEmbed],
-        content: "🎯 **¡Iniciativa completada! El combate comienza!**"
+        embeds: [embed, turnOrderData.embed],
+        content: `🎯 **¡Iniciativa completada! El combate comienza!**\n${turnOrderData.content || ""}`
       };
     } else {
       // Mostrar quién falta por tirar
@@ -60,54 +55,37 @@ async function initiativeRoll(interaction) {
     }
   } else {
     // Tirada de iniciativa normal (sin combate activo)
-    const args = {
-      pool: dexterity + composure,
-      bonus: initBonus,
-      penalty: initPenalty,
-      character: character,
-      notes: "Tirada de Iniciativa"
-    };
-
-    interaction.arguments = args;
-    interaction.rollResults = new CodRollResults(interaction);
-    
-    const finalPool = dexterity + composure + initBonus - initPenalty;
-    const actualPool = Math.max(0, finalPool);
+    const dieRoll = Math.floor(Math.random() * 10) + 1;
+    const finalInitiative = dieRoll + initiativeModifier;
     
     const embed = new EmbedBuilder()
       .setAuthor({
         name: interaction.member?.displayName ?? interaction.user.displayName ?? interaction.user.username,
         iconURL: interaction.member?.displayAvatarURL() ?? interaction.user.displayAvatarURL(),
       })
-      .setTitle(`🎯 Iniciativa - Tirando ${actualPool}d10`)
-      .setColor(interaction.rollResults.outcome.color)
+      .setTitle(`🎯 Iniciativa - ${character || 'Personaje'}`)
+      .setColor("#FFD700")
       .addFields(
-        { name: "Pool Base", value: `Destreza (${dexterity}) + Composure (${composure}) = ${dexterity + composure}d10`, inline: true },
-        { name: "Modificadores", value: `Bonus: +${initBonus} | Penalty: -${initPenalty}`, inline: true },
-        { name: "Pool Final", value: `${actualPool}d10 ${interaction.rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
-        { name: "Resultado", value: `**${interaction.rollResults.total} éxitos**\n${interaction.rollResults.outcome.toString}` }
+        { name: "Dado", value: `🎲 **${dieRoll}** (d10)`, inline: true },
+        { name: "Modificador", value: `${initiativeModifier >= 0 ? '+' : ''}${initiativeModifier}`, inline: true },
+        { name: "Iniciativa Final", value: `**${finalInitiative}**`, inline: true }
       );
 
     if (character) embed.addFields({ name: "Personaje", value: character });
 
-    return { 
-      content: getContent(interaction), 
-      embeds: [embed] 
-    };
+    return { embeds: [embed] };
   }
 }
 
 async function attackRoll(interaction) {
   const attackType = interaction.options.getString("attack_type");
   const basePool = interaction.options.getInteger("pool");
-  const weaponBonus = interaction.options.getInteger("weapon_bonus") || 0;
   const weaponDamage = interaction.options.getInteger("weapon_damage") || 0;
   const targetDefense = interaction.options.getInteger("target_defense") || 0;
   const damageType = interaction.options.getString("damage_type");
   
   const args = {
     pool: basePool,
-    bonus: weaponBonus,
     penalty: targetDefense,
     character: interaction.options.getString("character"),
     notes: `Ataque ${attackType}`
@@ -116,7 +94,7 @@ async function attackRoll(interaction) {
   interaction.arguments = args;
   interaction.rollResults = new CodRollResults(interaction);
   
-  const finalPool = basePool + weaponBonus - targetDefense;
+  const finalPool = basePool - targetDefense;
   const actualPool = Math.max(0, finalPool);
   
   // Calcular daño automáticamente si el ataque tuvo éxito
@@ -143,7 +121,7 @@ async function attackRoll(interaction) {
     .setColor(interaction.rollResults.outcome.color)
     .addFields(
       { name: "Pool Base", value: `Atributo + Habilidad = ${basePool}d10`, inline: true },
-      { name: "Modificadores de Ataque", value: `🗡️ Arma: +${weaponBonus}d10\n🛡️ Defensa: -${targetDefense}d10`, inline: true },
+      { name: "Modificadores", value: `🛡️ Defensa del objetivo: -${targetDefense}d10`, inline: true },
       { name: "Pool Final", value: `${actualPool}d10 ${interaction.rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
       { name: "Resultado del Ataque", value: `🎲 **${interaction.rollResults.total} éxitos**\n${interaction.rollResults.outcome.toString}` },
       { name: "Daño Calculado", value: damageCalculation }
@@ -151,10 +129,27 @@ async function attackRoll(interaction) {
 
   if (args.character) embed.addFields({ name: "Personaje", value: args.character });
 
-  return { 
+  // Verificar si hay combate activo y avanzar turno
+  const combat = getCombat(interaction.channel.id);
+  const userId = interaction.user.id;
+  let nextTurnData = null;
+  
+  if (combat && combat.isActive) {
+    nextTurnData = combat.advanceTurnAfterAction(userId);
+  }
+
+  const result = { 
     content: getContent(interaction), 
     embeds: [embed] 
   };
+
+  // Si hay que avanzar turno, agregar la información
+  if (nextTurnData) {
+    result.content += `\n\n${nextTurnData.content || ""}`;
+    result.embeds.push(nextTurnData.embed);
+  }
+
+  return result;
 }
 
 async function damageRoll(interaction) {
@@ -190,7 +185,24 @@ async function damageRoll(interaction) {
   const character = interaction.options.getString("character");
   if (character) embed.addFields({ name: "Personaje", value: character });
 
-  return { embeds: [embed] };
+  // Verificar si hay combate activo y avanzar turno
+  const combat = getCombat(interaction.channel.id);
+  const userId = interaction.user.id;
+  let nextTurnData = null;
+  
+  if (combat && combat.isActive) {
+    nextTurnData = combat.advanceTurnAfterAction(userId);
+  }
+
+  const result = { embeds: [embed] };
+
+  // Si hay que avanzar turno, agregar la información
+  if (nextTurnData) {
+    result.content = nextTurnData.content || "";
+    result.embeds.push(nextTurnData.embed);
+  }
+
+  return result;
 }
 
 async function soakRoll(interaction) {
@@ -238,10 +250,27 @@ async function soakRoll(interaction) {
 
   if (args.character) embed.addFields({ name: "Personaje", value: args.character });
 
-  return { 
+  // Verificar si hay combate activo y avanzar turno
+  const combat = getCombat(interaction.channel.id);
+  const userId = interaction.user.id;
+  let nextTurnData = null;
+  
+  if (combat && combat.isActive) {
+    nextTurnData = combat.advanceTurnAfterAction(userId);
+  }
+
+  const result = { 
     content: getContent(interaction), 
     embeds: [embed] 
   };
+
+  // Si hay que avanzar turno, agregar la información
+  if (nextTurnData) {
+    result.content += `\n\n${nextTurnData.content || ""}`;
+    result.embeds.push(nextTurnData.embed);
+  }
+
+  return result;
 }
 
 function getContent(interaction) {
