@@ -50,15 +50,14 @@ async function initiativeRoll(interaction) {
 
 async function attackRoll(interaction) {
   const attackType = interaction.options.getString("attack_type");
-  const attribute = interaction.options.getInteger("attribute");
-  const skill = interaction.options.getInteger("skill");
+  const basePool = interaction.options.getInteger("pool");
   const weaponBonus = interaction.options.getInteger("weapon_bonus") || 0;
   const weaponDamage = interaction.options.getInteger("weapon_damage") || 0;
   const targetDefense = interaction.options.getInteger("target_defense") || 0;
-  const damageType = interaction.options.getString("damage_type") || "lethal";
+  const damageType = interaction.options.getString("damage_type");
   
   const args = {
-    pool: attribute + skill,
+    pool: basePool,
     bonus: weaponBonus,
     penalty: targetDefense,
     character: interaction.options.getString("character"),
@@ -68,7 +67,7 @@ async function attackRoll(interaction) {
   interaction.arguments = args;
   interaction.rollResults = new CodRollResults(interaction);
   
-  const finalPool = attribute + skill + weaponBonus - targetDefense;
+  const finalPool = basePool + weaponBonus - targetDefense;
   const actualPool = Math.max(0, finalPool);
   
   // Calcular daño automáticamente si el ataque tuvo éxito
@@ -94,7 +93,7 @@ async function attackRoll(interaction) {
     .setTitle(`⚔️ ${attackType} - Tirando ${actualPool}d10`)
     .setColor(interaction.rollResults.outcome.color)
     .addFields(
-      { name: "Pool Base", value: `Atributo (${attribute}) + Habilidad (${skill}) = ${attribute + skill}d10`, inline: true },
+      { name: "Pool Base", value: `Atributo + Habilidad = ${basePool}d10`, inline: true },
       { name: "Modificadores de Ataque", value: `🗡️ Arma: +${weaponBonus}d10\n🛡️ Defensa: -${targetDefense}d10`, inline: true },
       { name: "Pool Final", value: `${actualPool}d10 ${interaction.rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
       { name: "Resultado del Ataque", value: `🎲 **${interaction.rollResults.total} éxitos**\n${interaction.rollResults.outcome.toString}` },
@@ -112,7 +111,7 @@ async function attackRoll(interaction) {
 async function damageRoll(interaction) {
   const attackSuccesses = interaction.options.getInteger("attack_successes");
   const weaponDamage = interaction.options.getInteger("weapon_damage") || 0;
-  const damageType = interaction.options.getString("damage_type") || "lethal";
+  const damageType = interaction.options.getString("damage_type");
   
   let totalDamage = 0;
   let calculationText = "";
