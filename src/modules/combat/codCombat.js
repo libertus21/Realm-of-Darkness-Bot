@@ -53,7 +53,9 @@ async function attackRoll(interaction) {
   const attribute = interaction.options.getInteger("attribute");
   const skill = interaction.options.getInteger("skill");
   const weaponBonus = interaction.options.getInteger("weapon_bonus") || 0;
+  const weaponDamage = interaction.options.getInteger("weapon_damage") || 0;
   const targetDefense = interaction.options.getInteger("target_defense") || 0;
+  const damageType = interaction.options.getString("damage_type") || "lethal";
   
   const args = {
     pool: attribute + skill,
@@ -69,6 +71,21 @@ async function attackRoll(interaction) {
   const finalPool = attribute + skill + weaponBonus - targetDefense;
   const actualPool = Math.max(0, finalPool);
   
+  // Calcular daño automáticamente si el ataque tuvo éxito
+  let damageCalculation = "";
+  let finalDamage = 0;
+  const damageIcon = getDamageIcon(damageType);
+  const damageDescription = getDamageTypeDescription(damageType);
+  
+  if (interaction.rollResults.total >= 1) {
+    finalDamage = interaction.rollResults.total + weaponDamage;
+    damageCalculation = `${damageIcon} **DAÑO ${damageType.toUpperCase()}**\n` +
+                       `${interaction.rollResults.total} éxitos + ${weaponDamage} bonus arma = **${finalDamage} puntos**\n` +
+                       `${damageDescription}`;
+  } else {
+    damageCalculation = `❌ **SIN DAÑO** - El ataque falló (0 éxitos)`;
+  }
+  
   const embed = new EmbedBuilder()
     .setAuthor({
       name: interaction.member?.displayName ?? interaction.user.displayName ?? interaction.user.username,
@@ -78,9 +95,10 @@ async function attackRoll(interaction) {
     .setColor(interaction.rollResults.outcome.color)
     .addFields(
       { name: "Pool Base", value: `Atributo (${attribute}) + Habilidad (${skill}) = ${attribute + skill}d10`, inline: true },
-      { name: "Modificadores", value: `Arma: +${weaponBonus} | Defensa: -${targetDefense}`, inline: true },
+      { name: "Modificadores de Ataque", value: `🗡️ Arma: +${weaponBonus}d10\n🛡️ Defensa: -${targetDefense}d10`, inline: true },
       { name: "Pool Final", value: `${actualPool}d10 ${interaction.rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
-      { name: "Resultado", value: `**${interaction.rollResults.total} éxitos**\n${interaction.rollResults.outcome.toString}` }
+      { name: "Resultado del Ataque", value: `🎲 **${interaction.rollResults.total} éxitos**\n${interaction.rollResults.outcome.toString}` },
+      { name: "Daño Calculado", value: damageCalculation }
     );
 
   if (args.character) embed.addFields({ name: "Personaje", value: args.character });
@@ -92,24 +110,33 @@ async function attackRoll(interaction) {
 }
 
 async function damageRoll(interaction) {
-  const strength = interaction.options.getInteger("strength");
   const attackSuccesses = interaction.options.getInteger("attack_successes");
   const weaponDamage = interaction.options.getInteger("weapon_damage") || 0;
   const damageType = interaction.options.getString("damage_type") || "lethal";
   
-  const totalDamage = strength + attackSuccesses + weaponDamage;
+  let totalDamage = 0;
+  let calculationText = "";
+  const damageIcon = getDamageIcon(damageType);
+  
+  if (attackSuccesses >= 1) {
+    totalDamage = attackSuccesses + weaponDamage;
+    calculationText = `${attackSuccesses} éxitos + ${weaponDamage} bonus arma = **${totalDamage} puntos**`;
+  } else {
+    totalDamage = 0;
+    calculationText = `El ataque falló (0 éxitos) - **Sin daño**`;
+  }
   
   const embed = new EmbedBuilder()
     .setAuthor({
       name: interaction.member?.displayName ?? interaction.user.displayName ?? interaction.user.username,
       iconURL: interaction.member?.displayAvatarURL() ?? interaction.user.displayAvatarURL(),
     })
-    .setTitle(`💥 Daño ${damageType.charAt(0).toUpperCase() + damageType.slice(1)}`)
-    .setColor("#ff6b6b")
+    .setTitle(`${damageIcon} Daño ${damageType.charAt(0).toUpperCase() + damageType.slice(1)}`)
+    .setColor(totalDamage > 0 ? "#ff6b6b" : "#666666")
     .addFields(
-      { name: "Cálculo", value: `Fuerza (${strength}) + Éxitos de Ataque (${attackSuccesses}) + Arma (${weaponDamage})`, inline: false },
-      { name: "Daño Total", value: `${totalDamage} puntos de daño ${damageType}`, inline: false },
-      { name: "Tipo de Daño", value: getDamageTypeDescription(damageType), inline: false }
+      { name: "Regla", value: "Si éxitos ≥ 1: Daño = Éxitos + Bono del Arma", inline: false },
+      { name: "Cálculo", value: calculationText, inline: false },
+      { name: "Tipo", value: getDamageTypeDescription(damageType), inline: false }
     );
 
   const character = interaction.options.getString("character");
@@ -143,20 +170,22 @@ async function soakRoll(interaction) {
   
   const finalDamage = Math.max(0, incomingDamage - interaction.rollResults.total);
   
+  const damageIcon = getDamageIcon(damageType);
+  
   const embed = new EmbedBuilder()
     .setAuthor({
       name: interaction.member?.displayName ?? interaction.user.displayName ?? interaction.user.username,
       iconURL: interaction.member?.displayAvatarURL() ?? interaction.user.displayAvatarURL(),
     })
-    .setTitle(`🛡️ Absorción - Tirando ${soakPool}d10`)
+    .setTitle(`🛡️ Absorción vs ${damageIcon} ${damageType} - Tirando ${soakPool}d10`)
     .setColor(finalDamage === 0 ? "#00ff00" : "#ffaa00")
     .addFields(
       { name: "Pool Base", value: `Stamina (${stamina}) + Resistencia (${resistance}) = ${stamina + resistance}d10`, inline: true },
-      { name: "Armadura", value: `${damageType === "aggravated" ? "No aplica vs Agravado" : `+${armorRating}d10`}`, inline: true },
+      { name: "Armadura", value: `${damageType === "aggravated" ? "❌ No aplica vs Agravado" : `✅ +${armorRating}d10`}`, inline: true },
       { name: "Pool Final", value: `${soakPool}d10 ${interaction.rollResults.chance ? '(Chance Die)' : ''}`, inline: true },
-      { name: "Daño Entrante", value: `${incomingDamage} puntos de daño ${damageType}`, inline: true },
-      { name: "Éxitos de Absorción", value: `**${interaction.rollResults.total} éxitos**`, inline: true },
-      { name: "Daño Final", value: `**${finalDamage} puntos** ${finalDamage === 0 ? '¡Absorbido completamente!' : 'de daño recibido'}`, inline: true }
+      { name: "Daño Entrante", value: `${damageIcon} **${incomingDamage} puntos** de daño ${damageType}`, inline: true },
+      { name: "Éxitos de Absorción", value: `🎲 **${interaction.rollResults.total} éxitos**`, inline: true },
+      { name: "Daño Final", value: `${finalDamage === 0 ? '✅' : '💔'} **${finalDamage} puntos** ${finalDamage === 0 ? '¡Absorbido completamente!' : 'de daño recibido'}`, inline: true }
     );
 
   if (args.character) embed.addFields({ name: "Personaje", value: args.character });
@@ -214,14 +243,27 @@ function toDiceString(diceResults, interaction, chanceDice = false) {
   return mess;
 }
 
+function getDamageIcon(damageType) {
+  switch (damageType) {
+    case "bashing":
+      return "👊"; // Puño para contundente
+    case "lethal":
+      return "🗡️"; // Espada para letal
+    case "aggravated":
+      return "🔥"; // Fuego para agravado
+    default:
+      return "💥";
+  }
+}
+
 function getDamageTypeDescription(damageType) {
   switch (damageType) {
     case "bashing":
-      return "Daño contundente - se cura rápidamente";
+      return "Contundente - se cura rápidamente";
     case "lethal":
-      return "Daño letal - cortes, balas, etc.";
+      return "Letal - cortes, balas, etc.";
     case "aggravated":
-      return "Daño agravado - fuego, sol, garras sobrenaturales";
+      return "Agravado - fuego, sol, garras sobrenaturales";
     default:
       return "Tipo de daño desconocido";
   }

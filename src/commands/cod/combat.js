@@ -82,7 +82,7 @@ function getCommand() {
   command.addSubcommand((subcommand) =>
     subcommand
       .setName("attack")
-      .setDescription("Tirada de ataque")
+      .setDescription("Tirada de ataque (calcula daño automáticamente si es exitoso)")
       
       .addStringOption((option) =>
         option
@@ -131,6 +131,25 @@ function getCommand() {
           .setMinValue(0)
       )
       
+      .addIntegerOption((option) =>
+        option
+          .setName("weapon_damage")
+          .setDescription("Bono de daño del arma")
+          .setMaxValue(10)
+          .setMinValue(0)
+      )
+      
+      .addStringOption((option) =>
+        option
+          .setName("damage_type")
+          .setDescription("Tipo de daño del arma")
+          .addChoices(
+            { name: "Contundente (Bashing)", value: "bashing" },
+            { name: "Letal (Lethal)", value: "lethal" },
+            { name: "Agravado (Aggravated)", value: "aggravated" }
+          )
+      )
+      
       .addStringOption((option) =>
         option
           .setName("character")
@@ -143,16 +162,7 @@ function getCommand() {
   command.addSubcommand((subcommand) =>
     subcommand
       .setName("damage")
-      .setDescription("Calcular daño total")
-      
-      .addIntegerOption((option) =>
-        option
-          .setName("strength")
-          .setDescription("Valor del atributo Fuerza")
-          .setMaxValue(10)
-          .setMinValue(1)
-          .setRequired(true)
-      )
+      .setDescription("Calcular daño total (Éxitos + Bono del Arma)")
       
       .addIntegerOption((option) =>
         option
