@@ -111,7 +111,7 @@ async function attackRoll(interaction) {
 async function damageRoll(interaction) {
   const attackSuccesses = interaction.options.getInteger("attack_successes");
   const weaponDamage = interaction.options.getInteger("weapon_damage") || 0;
-  const damageType = interaction.options.getString("damage_type");
+  const damageType = interaction.options.getString("damage_type") || "lethal";
   
   let totalDamage = 0;
   let calculationText = "";

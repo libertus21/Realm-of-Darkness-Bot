@@ -82,7 +82,7 @@ function getCommand() {
   command.addSubcommand((subcommand) =>
     subcommand
       .setName("attack")
-      .setDescription("Tirada de ataque con pool simplificado (calcula daño automáticamente)")
+      .setDescription("Tirada de ataque (calcula daño automáticamente si es exitoso)")
       
       .addStringOption((option) =>
         option
@@ -100,10 +100,22 @@ function getCommand() {
       .addIntegerOption((option) =>
         option
           .setName("pool")
-          .setDescription("Pool total (Atributo + Habilidad)")
+          .setDescription("Pool de dados (suma de Atributo + Habilidad)")
           .setMaxValue(20)
           .setMinValue(1)
           .setRequired(true)
+      )
+      
+      .addStringOption((option) =>
+        option
+          .setName("damage_type")
+          .setDescription("Tipo de daño del arma")
+          .setRequired(true)
+          .addChoices(
+            { name: "Contundente (Bashing)", value: "bashing" },
+            { name: "Letal (Lethal)", value: "lethal" },
+            { name: "Agravado (Aggravated)", value: "aggravated" }
+          )
       )
       
       .addIntegerOption((option) =>
@@ -132,18 +144,6 @@ function getCommand() {
       
       .addStringOption((option) =>
         option
-          .setName("damage_type")
-          .setDescription("Tipo de daño del arma")
-          .setRequired(true)
-          .addChoices(
-            { name: "Contundente (Bashing)", value: "bashing" },
-            { name: "Letal (Lethal)", value: "lethal" },
-            { name: "Agravado (Aggravated)", value: "aggravated" }
-          )
-      )
-      
-      .addStringOption((option) =>
-        option
           .setName("character")
           .setDescription("Nombre del personaje")
           .setMaxLength(50)
@@ -154,7 +154,7 @@ function getCommand() {
   command.addSubcommand((subcommand) =>
     subcommand
       .setName("damage")
-      .setDescription("Calcular daño manualmente (requiere tipo de daño)")
+      .setDescription("Calcular daño total (Éxitos + Bono del Arma)")
       
       .addIntegerOption((option) =>
         option
@@ -177,7 +177,6 @@ function getCommand() {
         option
           .setName("damage_type")
           .setDescription("Tipo de daño")
-          .setRequired(true)
           .addChoices(
             { name: "Contundente (Bashing)", value: "bashing" },
             { name: "Letal (Lethal)", value: "lethal" },
